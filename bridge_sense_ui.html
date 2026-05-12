@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="id" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#0a0f1e"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>Bridge-Sense</title>
+  <style>
+    /* ============================================================
+       DESIGN TOKENS — Light Mode (PDF-accurate)
+    ============================================================ */
+    :root {
+      --bg-base:       #F0F4F8;
+      --bg-surface:    #FFFFFF;
+      --bg-card:       #FFFFFF;
+      --bg-elevated:   #E8EDF3;
+      --accent-green:  #1B8A4C;
+      --accent-cyan:   #0277BD;
+      --accent-amber:  #E65100;
+      --accent-red:    #C62828;
+      --text-primary:  #1A1A2E;
+      --text-secondary:#455A64;
+      --text-muted:    #90A4AE;
+      --border:        rgba(0,0,0,0.10);
+      --radius-sm:     6px;
+      --radius-md:     12px;
+      --radius-lg:     18px;
+      --font-mono:     'Courier New', monospace;
+      --font-ui:       -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --nav-h:         62px;
+      --header-h:      56px;
+      --safe-bottom:   env(safe-area-inset-bottom, 0px);
+    }
+
+    /* ============================================================
+       RESET & BASE
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%; width: 100%;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button { cursor: pointer; border: none; background: none; font: inherit; }
+    canvas { display: block; }
+
+    /* ============================================================
+       LAYOUT SHELL
+    ============================================================ */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      position: relative;
+    }
+
+    /* ---- TOP HEADER ---- */
+    #header {
+      height: var(--header-h);
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+      z-index: 100;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .header-brand { display: flex; align-items: center; gap: 8px; }
+    .brand-icon {
+      width: 30px; height: 30px;
+      background: var(--accent-amber);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .brand-name { font-size: 17px; font-weight: 700; letter-spacing: 0.5px; color: var(--text-primary); }
+    .brand-name span { color: var(--accent-amber); }
+    .pill-badge {
+      font-size: 10px; font-weight: 600;
+      font-family: var(--font-mono);
+      padding: 2px 8px; border-radius: 20px; letter-spacing: 0.5px;
+    }
+    .pill-badge.version {
+      background: rgba(230,81,0,0.10);
+      color: var(--accent-amber);
+      border: 1px solid rgba(230,81,0,0.25);
+    }
+
+    /* ---- SCROLLABLE CONTENT AREA ---- */
+    #page-wrapper { flex: 1; overflow: hidden; position: relative; }
+    .page {
+      position: absolute; inset: 0;
+      overflow-y: auto;
+      padding: 14px 14px calc(var(--nav-h) + var(--safe-bottom) + 10px);
+      display: none; flex-direction: column; gap: 12px;
+    }
+    .page.active { display: flex; }
+    .page::-webkit-scrollbar { display: none; }
+
+    /* ---- BOTTOM NAV (3 tabs) ---- */
+    #bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: calc(var(--nav-h) + var(--safe-bottom));
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 200;
+      padding-bottom: var(--safe-bottom);
+      box-shadow: 0 -1px 6px rgba(0,0,0,0.07);
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 4px;
+      color: var(--text-muted);
+      font-size: 10px; font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-btn .nav-icon { font-size: 20px; transition: transform 0.2s; }
+    .nav-btn.active { color: var(--accent-amber); }
+    .nav-btn.active .nav-icon { transform: translateY(-2px); }
+
+    /* ============================================================
+       CARD COMPONENT
+    ============================================================ */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-secondary);
+    }
+
+    /* ============================================================
+       PAGE 1 — SENSE
+    ============================================================ */
+
+    /* Status Row */
+    .status-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .status-chip {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.idle  { background: var(--text-muted); }
+    .status-dot.ready { background: var(--accent-amber); }
+    .status-dot.active {
+      background: var(--accent-green);
+      box-shadow: 0 0 6px var(--accent-green);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .status-dot.error { background: var(--accent-red); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
+    .status-info { display: flex; flex-direction: column; min-width: 0; }
+    .status-label { font-size: 10px; color: var(--text-muted); }
+    .status-value { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Waveform Canvas */
+    .waveform-card { padding: 12px; }
+    .waveform-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 8px;
+    }
+    .waveform-legend { display: flex; gap: 10px; }
+    .legend-item {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 10px; color: var(--text-secondary);
+    }
+    .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
+    #waveform-canvas {
+      width: 100%; height: 140px;
+      border-radius: var(--radius-sm);
+      background: #070d1a;
+      border: 1px solid rgba(0,230,118,0.1);
+    }
+    .waveform-axis {
+      display: flex; justify-content: space-between;
+      margin-top: 4px; font-size: 9px;
+      color: var(--text-muted); font-family: var(--font-mono);
+    }
+
+    /* ---- TELEMETRY: Z-ONLY, FULL WIDTH ---- */
+    .telem-z-wrap {
+      background: var(--bg-elevated);
+      border: 1px solid rgba(0,230,118,0.2);
+      border-radius: var(--radius-md);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .telem-z-label {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text-muted);
+    }
+    #val-z {
+      font-size: 52px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--accent-green);
+      line-height: 1;
+      text-shadow: 0 0 24px rgba(0,230,118,0.35);
+      letter-spacing: -1px;
+    }
+    .telem-z-unit {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .telem-z-sub {
+      font-size: 10px; color: var(--text-muted);
+      margin-top: 4px; letter-spacing: 0.5px;
+    }
+
+    /* Buffer Progress */
+    .buffer-meta {
+      display: flex; justify-content: space-between;
+      font-size: 11px; margin-bottom: 6px;
+    }
+    .buffer-count { font-family: var(--font-mono); color: var(--accent-cyan); }
+    .buffer-bar-track {
+      height: 6px; background: var(--bg-elevated);
+      border-radius: 3px; overflow: hidden;
+    }
+    .buffer-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+      border-radius: 3px; transition: width 0.1s linear;
+    }
+
+    /* CTA */
+    .cta-wrap { display: flex; gap: 10px; }
+    #btn-sense {
+      flex: 1; height: 52px;
+      border-radius: var(--radius-md);
+      font-size: 15px; font-weight: 700; letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #00bcd4, #00e676);
+      color: #070d1a;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.3s;
+      box-shadow: 0 4px 20px rgba(0,230,118,0.25);
+    }
+    #btn-sense:active { transform: scale(0.97); }
+    #btn-sense.sensing {
+      background: linear-gradient(135deg, #ff5252, #ff1744);
+      box-shadow: 0 4px 20px rgba(255,82,82,0.3);
+      color: #fff;
+    }
+    #btn-permission {
+      height: 52px; width: 52px;
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      font-size: 22px;
+    }
+
+    /* Transmission Log */
+    .log-feed {
+      max-height: 120px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .log-feed::-webkit-scrollbar { display: none; }
+    .log-entry {
+      display: flex; gap: 8px; align-items: flex-start;
+      font-size: 11px; font-family: var(--font-mono);
+      padding: 6px 8px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--text-muted);
+    }
+    .log-entry.ok   { border-left-color: var(--accent-green); }
+    .log-entry.warn { border-left-color: var(--accent-amber); }
+    .log-entry.err  { border-left-color: var(--accent-red); }
+    .log-time { color: var(--text-muted); flex-shrink: 0; }
+    .log-msg  { color: var(--text-secondary); }
+    .log-msg b { color: var(--text-primary); }
+
+    /* ============================================================
+       PAGE 2 — MAP (UNCHANGED)
+    ============================================================ */
+    .bridge-filter {
+      display: flex; gap: 8px;
+      overflow-x: auto; padding-bottom: 4px;
+    }
+    .bridge-filter::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0; padding: 5px 12px;
+      border-radius: 20px; font-size: 12px; font-weight: 500;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      color: var(--text-secondary); transition: background 0.2s, color 0.2s;
+    }
+    .filter-chip.active {
+      background: rgba(0,188,212,0.15);
+      border-color: var(--accent-cyan); color: var(--accent-cyan);
+    }
+    .map-placeholder {
+      background: #070d1a; border: 1px solid var(--border);
+      border-radius: var(--radius-md); height: 220px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; color: var(--text-muted); font-size: 13px;
+      position: relative; overflow: hidden;
+    }
+    .map-placeholder .map-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,188,212,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,188,212,0.05) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+    .map-center-dot {
+      width: 12px; height: 12px;
+      background: var(--accent-cyan); border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(0,188,212,0.2);
+      animation: pulse 1.4s ease-in-out infinite; z-index: 1;
+    }
+    .map-label   { z-index:1; font-size:12px; color:var(--accent-cyan); font-weight:600; }
+    .map-sublabel{ z-index:1; font-size:10px; color:var(--text-muted); }
+    .bridge-list { display: flex; flex-direction: column; gap: 8px; }
+    .bridge-item {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 12px;
+    }
+    .bridge-icon { font-size: 24px; flex-shrink: 0; }
+    .bridge-info { flex: 1; min-width: 0; }
+    .bridge-name { font-size: 14px; font-weight: 600; }
+    .bridge-loc  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .bridge-status-badge { font-size:10px; font-weight:600; padding:3px 8px; border-radius:20px; }
+    .badge-monitored { background:rgba(0,230,118,0.12); color:var(--accent-green); border:1px solid rgba(0,230,118,0.25); }
+    .badge-pending   { background:rgba(255,171,0,0.12);  color:var(--accent-amber); border:1px solid rgba(255,171,0,0.25); }
+    .badge-inactive  { background:rgba(255,255,255,0.06);color:var(--text-muted);  border:1px solid var(--border); }
+
+    /* ============================================================
+       PAGE 3 — PROFIL (MERGED: HISTORY + INFO)
+    ============================================================ */
+
+    /* -- History Stats (top of Profil) -- */
+    .history-stats {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+    }
+    .stat-cell {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 8px; text-align: center;
+    }
+    .stat-num  { font-size:22px; font-weight:700; font-family:var(--font-mono); color:var(--accent-cyan); }
+    .stat-desc { font-size:10px; color:var(--text-muted); margin-top:2px; }
+
+    .session-list { display:flex; flex-direction:column; gap:8px; }
+    .session-item {
+      background: var(--bg-elevated); border:1px solid var(--border);
+      border-radius: var(--radius-md); padding: 12px;
+    }
+    .session-row1 {
+      display:flex; justify-content:space-between;
+      align-items:center; margin-bottom:6px;
+    }
+    .session-bridge { font-size:13px; font-weight:600; }
+    .session-result { font-size:10px; font-weight:600; padding:2px 8px; border-radius:20px; }
+    .result-ok   { background:rgba(0,230,118,0.12); color:var(--accent-green); }
+    .result-warn { background:rgba(255,171,0,0.12);  color:var(--accent-amber); }
+    .session-meta {
+      font-size:11px; color:var(--text-muted);
+      font-family:var(--font-mono); display:flex; gap:12px;
+    }
+    .packet-row {
+      display:flex; justify-content:space-between;
+      font-size:10px; font-family:var(--font-mono); color:var(--text-muted);
+      background:var(--bg-card); padding:4px 8px; border-radius:4px;
+    }
+    .packet-row span:last-child { color:var(--accent-cyan); }
+
+    /* -- Info / Metodologi (below history in Profil) -- */
+    .profil-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 4px 0;
+    }
+    .profil-divider span {
+      font-size:10px; font-weight:600; text-transform:uppercase;
+      letter-spacing:1px; color:var(--text-muted); white-space:nowrap;
+    }
+    .profil-divider::before, .profil-divider::after {
+      content:''; flex:1; height:1px; background:var(--border);
+    }
+
+    .info-card {
+      background:var(--bg-elevated); border:1px solid var(--border);
+      border-radius:var(--radius-md); padding:14px;
+    }
+    .info-card-title {
+      font-size:13px; font-weight:700; color:var(--accent-cyan);
+      margin-bottom:8px; display:flex; align-items:center; gap:8px;
+    }
+    .info-card p { font-size:12px; color:var(--text-secondary); line-height:1.7; }
+    .formula-block {
+      background:#070d1a; border:1px solid rgba(0,188,212,0.2);
+      border-radius:var(--radius-sm); padding:10px 12px; margin-top:8px;
+      font-family:var(--font-mono); font-size:11px;
+      color:var(--accent-green); line-height:1.8;
+    }
+    .param-table { width:100%; border-collapse:collapse; margin-top:8px; }
+    .param-table td { padding:6px 8px; font-size:11px; border-bottom:1px solid var(--border); }
+    .param-table td:first-child { color:var(--accent-cyan); font-family:var(--font-mono); font-weight:600; width:40%; }
+    .param-table td:last-child  { color:var(--text-secondary); }
+    .param-table tr:last-child td { border-bottom:none; }
+
+    /* ============================================================
+       PERMISSION OVERLAY
+    ============================================================ */
+    #perm-overlay {
+      position:fixed; inset:0;
+      background:rgba(10,15,30,0.95);
+      z-index:500; display:flex;
+      align-items:center; justify-content:center; padding:24px;
+    }
+    .perm-box {
+      background:var(--bg-card);
+      border:1px solid rgba(0,188,212,0.3);
+      border-radius:var(--radius-lg);
+      padding:28px 24px; text-align:center;
+      max-width:360px; width:100%;
+    }
+    .perm-icon  { font-size:48px; margin-bottom:16px; }
+    .perm-title { font-size:18px; font-weight:700; margin-bottom:10px; }
+    .perm-desc  { font-size:13px; color:var(--text-secondary); line-height:1.7; margin-bottom:20px; }
+    .perm-warn  {
+      background:rgba(255,171,0,0.1); border:1px solid rgba(255,171,0,0.25);
+      border-radius:var(--radius-sm); padding:10px 12px;
+      font-size:11px; color:var(--accent-amber); margin-bottom:20px; text-align:left;
+    }
+    #btn-grant-perm {
+      width:100%; height:48px; border-radius:var(--radius-md);
+      background:linear-gradient(135deg,var(--accent-cyan),var(--accent-green));
+      color:#070d1a; font-size:15px; font-weight:700;
+    }
+    #btn-skip-perm { margin-top:10px; width:100%; height:40px; border-radius:var(--radius-md); color:var(--text-muted); font-size:13px; }
+
+    /* ============================================================
+       UTILITIES
+    ============================================================ */
+    .section-label {
+      font-size:10px; font-weight:600;
+      text-transform:uppercase; letter-spacing:1px;
+      color:var(--text-muted); margin-bottom:4px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== HEADER ===== -->
+  <header id="header">
+    <div class="header-brand">
+      <div class="brand-icon">🌉</div>
+      <span class="brand-name">Bridge<span>-Sense</span></span>
+    </div>
+    <span class="pill-badge version">v0.1-alpha</span>
+  </header>
+
+  <!-- ===== PAGES ===== -->
+  <div id="page-wrapper">
+
+    <!-- ==================== PAGE 1: SENSE ==================== -->
+    <div class="page active" id="page-sense">
+
+      <!-- Status Row -->
+      <div class="status-row">
+        <div class="status-chip">
+          <div class="status-dot idle" id="dot-gps"></div>
+          <div class="status-info">
+            <span class="status-label">GPS / Geofence</span>
+            <span class="status-value" id="val-gps">Menunggu...</span>
+          </div>
+        </div>
+        <div class="status-chip">
+          <div class="status-dot idle" id="dot-sensor"></div>
+          <div class="status-info">
+            <span class="status-label">IMU Sensor</span>
+            <span class="status-value" id="val-sensor">Idle</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Waveform Canvas -->
+      <div class="card waveform-card">
+        <div class="waveform-header">
+          <span class="card-title">Waveform ECS — Sumbu Z (Vertikal)</span>
+          <div class="waveform-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#00e676"></span>Raw</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#00bcd4"></span>SMA</span>
+          </div>
+        </div>
+        <canvas id="waveform-canvas"></canvas>
+        <div class="waveform-axis">
+          <span>-3s</span><span>-2s</span><span>-1s</span><span>now</span>
+        </div>
+      </div>
+
+      <!-- Telemetry: Z-ONLY, Full Width -->
+      <div class="card" style="padding:12px">
+        <div class="card-header">
+          <span class="card-title">Akselerasi Linear ECS</span>
+          <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">50 Hz</span>
+        </div>
+        <div class="telem-z-wrap">
+          <span class="telem-z-label">Z — Vertikal Jembatan</span>
+          <span id="val-z">0.000</span>
+          <span class="telem-z-unit">m/s²</span>
+          <span class="telem-z-sub">Sumbu X &amp; Y dieliminasi · ECS proyeksi aktif</span>
+        </div>
+      </div>
+
+      <!-- Buffer Progress -->
+      <div class="card">
+        <div class="card-header" style="margin-bottom:8px">
+          <span class="card-title">Buffer Transmisi</span>
+          <span class="pill-badge version" id="badge-state">IDLE</span>
+        </div>
+        <div class="buffer-meta">
+          <span>Sampel terkumpul</span>
+          <span class="buffer-count"><span id="buf-count">0</span> / 150</span>
+        </div>
+        <div class="buffer-bar-track">
+          <div class="buffer-bar-fill" id="buf-bar"></div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-wrap">
+        <button id="btn-permission" title="Izin Sensor" aria-label="Minta izin sensor">🔑</button>
+        <button id="btn-sense">▶ Mulai Sensing</button>
+      </div>
+
+      <!-- Transmission Log -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Log Transmisi</span>
+          <button id="btn-clear-log" style="font-size:11px;color:var(--text-muted)">Hapus</button>
+        </div>
+        <div class="log-feed" id="log-feed">
+          <div class="log-entry warn">
+            <span class="log-time">--:--:--</span>
+            <span class="log-msg">Sistem siap. Tekan <b>Mulai Sensing</b> untuk memulai akuisisi data.</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-sense -->
+
+    <!-- ==================== PAGE 2: MAP (UNCHANGED) ==================== -->
+    <div class="page" id="page-map">
+
+      <div class="card-title" style="padding:4px 0 8px">📍 Jembatan Terpantau — Bondowoso</div>
+
+      <div class="bridge-filter">
+        <button class="filter-chip active">Semua</button>
+        <button class="filter-chip">Aktif</button>
+        <button class="filter-chip">Pending</button>
+        <button class="filter-chip">Tidak Aktif</button>
+      </div>
+
+      <div class="map-placeholder">
+        <div class="map-grid"></div>
+        <div class="map-center-dot"></div>
+        <span class="map-label">Bondowoso, Jawa Timur</span>
+        <span class="map-sublabel">Peta interaktif dimuat via app.js</span>
+      </div>
+
+      <div class="section-label">Daftar Jembatan</div>
+      <div class="bridge-list">
+        <div class="bridge-item">
+          <span class="bridge-icon">🌉</span>
+          <div class="bridge-info">
+            <div class="bridge-name">Jembatan Kembang I</div>
+            <div class="bridge-loc">Desa Kembang · ±0.3 km</div>
+          </div>
+          <span class="bridge-status-badge badge-monitored">Aktif</span>
+        </div>
+        <div class="bridge-item">
+          <span class="bridge-icon">🌉</span>
+          <div class="bridge-info">
+            <div class="bridge-name">Jembatan Tamanan</div>
+            <div class="bridge-loc">Kec. Tamanan · ±4.1 km</div>
+          </div>
+          <span class="bridge-status-badge badge-pending">Pending</span>
+        </div>
+        <div class="bridge-item">
+          <span class="bridge-icon">🌉</span>
+          <div class="bridge-info">
+            <div class="bridge-name">Jembatan Darungan</div>
+            <div class="bridge-loc">Kec. Pakem · ±7.8 km</div>
+          </div>
+          <span class="bridge-status-badge badge-inactive">Tidak Aktif</span>
+        </div>
+        <div class="bridge-item">
+          <span class="bridge-icon">🌉</span>
+          <div class="bridge-info">
+            <div class="bridge-name">Jembatan Gunung Gumitir</div>
+            <div class="bridge-loc">Kec. Sumberwringin · ±22 km</div>
+          </div>
+          <span class="bridge-status-badge badge-inactive">Tidak Aktif</span>
+        </div>
+      </div>
+
+    </div><!-- /page-map -->
+
+    <!-- ==================== PAGE 3: PROFIL (MERGED) ==================== -->
+    <div class="page" id="page-profil">
+
+      <!-- ── BLOK HISTORY (dipindah dari #page-history) ── -->
+      <div class="section-label">Statistik Crowdsensing</div>
+      <div class="history-stats">
+        <div class="stat-cell">
+          <div class="stat-num" id="stat-sessions">0</div>
+          <div class="stat-desc">Sesi Total</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-num" id="stat-packets">0</div>
+          <div class="stat-desc">Paket Terkirim</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-num" id="stat-bridges">0</div>
+          <div class="stat-desc">Jembatan</div>
+        </div>
+      </div>
+
+      <div class="section-label">Riwayat Sesi Pengujian</div>
+      <div class="session-list" id="session-list">
+        <div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">
+          Belum ada sesi tercatat.<br>Mulai sensing untuk merekam data.
+        </div>
+      </div>
+
+      <!-- ── DIVIDER ── -->
+      <div class="profil-divider"><span>Metodologi &amp; Parameter</span></div>
+
+      <!-- ── BLOK INFO / METODOLOGI (lanjutan) ── -->
+      <div class="info-card">
+        <div class="info-card-title">📐 SCS → ECS Projection</div>
+        <p>Akselerometer smartphone merekam getaran dalam <b>Smartphone Coordinate System (SCS)</b> yang bergantung orientasi fisik perangkat. Bridge-Sense memproyeksikannya ke <b>Earth Coordinate System (ECS)</b> via matriks rotasi dari <code>DeviceOrientationEvent</code> (α, β, γ). Hanya komponen vertikal Z yang diteruskan ke buffer.</p>
+        <div class="formula-block">
+a_ECS = R(α,β,γ) · a_SCS<br>
+a_linear = a_total − g_vector<br>
+g_vector ≈ [0, 0, 9.80665] m/s²
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">⚙️ Parameter Akuisisi</div>
+        <table class="param-table">
+          <tr><td>Sampling Rate</td><td>50 Hz (20 ms / sampel)</td></tr>
+          <tr><td>Buffer Size</td><td>150 titik data (3 detik)</td></tr>
+          <tr><td>Transmisi</td><td>Setiap 3 detik (1 paket JSON)</td></tr>
+          <tr><td>Filter Noise</td><td>Simple Moving Average (SMA)</td></tr>
+          <tr><td>Geofence</td><td>GPS ± akurasi koordinat</td></tr>
+          <tr><td>Payload</td><td>JSON via HTTP POST (simulasi)</td></tr>
+        </table>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">🧹 Garbage Collection</div>
+        <p>Setelah setiap transmisi, array buffer dikosongkan eksplisit (<code>buffer.length = 0</code>) untuk mencegah akumulasi heap memory yang dapat menyebabkan crash pada browser perangkat kelas menengah ke bawah.</p>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">📡 Validasi GPS Haversine</div>
+        <p>Koordinat pengguna divalidasi terhadap geofence jembatan menggunakan <b>Formula Haversine</b>. Transmisi hanya diterima jika pengguna berada dalam radius valid di atas struktur jembatan.</p>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">ℹ️ Tentang Proyek</div>
+        <p>Bridge-Sense adalah prototipe riset <b>Mobile Crowdsensing</b> untuk Structural Health Monitoring (SHM) berbiaya rendah. Memanfaatkan Hukum Bilangan Besar: agregasi data masif dari banyak pengguna menekan noise acak, menyisakan frekuensi natural absolut struktur jembatan.</p>
+      </div>
+
+    </div><!-- /page-profil -->
+
+  </div><!-- /page-wrapper -->
+
+  <!-- ===== BOTTOM NAV (3 TABS) ===== -->
+  <nav id="bottom-nav">
+    <button class="nav-btn active" data-page="sense">
+      <span class="nav-icon">📡</span>
+      <span>Sense</span>
+    </button>
+    <button class="nav-btn" data-page="map">
+      <span class="nav-icon">🗺️</span>
+      <span>Peta</span>
+    </button>
+    <button class="nav-btn" data-page="profil">
+      <span class="nav-icon">👤</span>
+      <span>Profil</span>
+    </button>
+  </nav>
+
+  <!-- ===== PERMISSION OVERLAY ===== -->
+  <div id="perm-overlay">
+    <div class="perm-box">
+      <div class="perm-icon">📳</div>
+      <div class="perm-title">Izin Sensor Gerak</div>
+      <p class="perm-desc">Bridge-Sense memerlukan akses ke <b>akselerometer</b> dan <b>giroskop</b> perangkat untuk mengukur getaran jembatan secara real-time.</p>
+      <div class="perm-warn">⚠️ Pada iOS 13+, izin sensor gerak harus diminta secara eksplisit. Data sensor <b>tidak pernah</b> dikirim tanpa konfirmasi Anda.</div>
+      <button id="btn-grant-perm">🔑 Izinkan Akses Sensor</button>
+      <button id="btn-skip-perm">Lewati (Demo Mode)</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+  /* ============================================================
+     NAVIGASI — 3 tab: sense | map | profil
+  ============================================================ */
+  const pages   = document.querySelectorAll('.page');
+  const navBtns = document.querySelectorAll('.nav-btn');
+
+  navBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.page;
+      pages.forEach(p => p.classList.toggle('active', p.id === `page-${target}`));
+      navBtns.forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  /* Permission Overlay */
+  document.getElementById('btn-grant-perm').addEventListener('click', () => {
+    document.getElementById('perm-overlay').style.display = 'none';
+  });
+  document.getElementById('btn-skip-perm').addEventListener('click', () => {
+    document.getElementById('perm-overlay').style.display = 'none';
+  });
+  document.getElementById('btn-permission').addEventListener('click', () => {
+    document.getElementById('perm-overlay').style.display = 'flex';
+  });
+
+  /* Filter chip toggle */
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.closest('.bridge-filter')
+          .querySelectorAll('.filter-chip')
+          .forEach(c => c.classList.toggle('active', c === chip));
+    });
+  });
+
+  /* Canvas — resize & grid render */
+  const canvas = document.getElementById('waveform-canvas');
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr  = window.devicePixelRatio || 1;
+    canvas.width  = rect.width  * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.strokeStyle = 'rgba(0,188,212,0.08)';
+    ctx.lineWidth   = 1;
+    for (let y = 0; y <= 4; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, rect.height * y / 4);
+      ctx.lineTo(rect.width, rect.height * y / 4);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(0,188,212,0.04)';
+    for (let x = 0; x <= 3; x++) {
+      ctx.beginPath();
+      ctx.moveTo(rect.width * x / 3, 0);
+      ctx.lineTo(rect.width * x / 3, rect.height);
+      ctx.stroke();
+    }
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  /* Clear log */
+  document.getElementById('btn-clear-log').addEventListener('click', () => {
+    document.getElementById('log-feed').innerHTML = '';
+  });
+</script>
+</body>
+</html>
