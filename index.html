@@ -8,6 +8,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
   <title>Bridge-Sense</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <link rel="stylesheet" href="style.css?v=2">
 </head>
@@ -110,12 +113,9 @@
         <button class="filter-chip">Pending</button>
         <button class="filter-chip">Tidak Aktif</button>
       </div>
-      <div class="map-placeholder">
-        <div class="map-grid"></div>
-        <div class="map-center-dot"></div>
-        <span class="map-label">Bondowoso, Jawa Timur</span>
-        <span class="map-sublabel">Peta interaktif dimuat via app.js</span>
-      </div>
+      
+      <div id="map-container" style="height: 250px; width: 100%; border-radius: 12px; z-index: 1; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 8px;"></div>
+      
       <div class="section-label">Daftar Jembatan</div>
       <div class="bridge-list">
         <div class="bridge-item">
@@ -181,7 +181,9 @@ g_vector ≈ [0, 0, 9.80665] m/s²
       </div>
     </div>
 
-  </div><nav id="bottom-nav">
+  </div>
+  
+  <nav id="bottom-nav">
     <button class="nav-btn active" data-page="sense">
       <span class="nav-icon">📡</span>
       <span>Sense</span>
