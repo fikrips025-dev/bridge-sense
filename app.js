@@ -484,3 +484,52 @@ resizeCanvas();
 _rafId = requestAnimationFrame(renderWaveform);
 elLogFeed.innerHTML = '';
 addLog('warn', `Bridge-Sense siap · device_id: <b>${DEVICE_ID}</b>`);
+
+/* ──────────────────────────────────────────────────────────────
+   17. LEAFLET.JS - PETA INTERAKTIF & NODE BONDOWOSO
+────────────────────────────────────────────────────────────── */
+let bridgeMap = null;
+
+function initMap() {
+  if (bridgeMap) return; // Mencegah peta dirender berulang kali
+
+  // Titik tengah: Koordinat area Bondowoso
+  bridgeMap = L.map('map-container').setView([-7.9135, 113.8228], 13);
+
+  // Sumber Peta: OpenStreetMap (Gratis & Ringan)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(bridgeMap);
+
+  // Database Node Jembatan Lokal
+  const nodes = [
+    { id: "ki-ronggo", name: "Jembatan Ki Ronggo", lat: -7.9134, lon: 113.8214, status: "Aman / Aktif", color: "#1B8A4C" },
+    { id: "sentong", name: "Jembatan Sentong", lat: -7.9230, lon: 113.8320, status: "Revitalisasi (Pasca Rubuh)", color: "#E65100" },
+    { id: "kembang", name: "Jembatan Kembang I", lat: -7.9015, lon: 113.8120, status: "Aman / Aktif", color: "#1B8A4C" }
+  ];
+
+  // Eksekusi Pemasangan Pin di Peta
+  nodes.forEach(node => {
+    // Custom UI untuk pin metrologi
+    const iconHtml = `<div style="background-color:${node.color}; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow:0 0 6px rgba(0,0,0,0.4);"></div>`;
+    const customIcon = L.divIcon({ className: 'custom-pin', html: iconHtml, iconSize: [18, 18], iconAnchor: [9, 9] });
+
+    // Tambahkan ke peta beserta informasinya
+    L.marker([node.lat, node.lon], { icon: customIcon })
+      .addTo(bridgeMap)
+      .bindPopup(`<strong style="font-size:12px; font-family:sans-serif;">${node.name}</strong><br><span style="font-size:10px; font-weight:600; color:${node.color}">${node.status}</span>`);
+  });
+}
+
+// BUG-FIX: Memaksa peta menyesuaikan ukuran saat Tab 'Peta' diketuk
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.page === 'map') {
+      setTimeout(() => {
+        initMap();
+        if (bridgeMap) bridgeMap.invalidateSize(); // Rendering ulang layar
+      }, 150);
+    }
+  });
+});
