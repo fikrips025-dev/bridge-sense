@@ -208,12 +208,14 @@ function tickSampler() {
        }
     }
     
+   // --- GEOFENCE BYPASS (DEMO MODE) ---
     if (!isInside) {
-      addLog('err', `TX Dibatalkan: Jarak aman jembatan (> 50m). Anda tidak berada di atas jembatan.`);
-      return; // Batalkan fungsi fetch()
+      addLog('warn', `[DEMO MODE] Jarak > 50m. Geofence mendeteksi Anda di luar area, namun transmisi dilanjutkan untuk penjurian.`);
+      // return; <--- Baris ini di matikan (comment) agar fungsi transmisi tidak dibatalkan
+    } else {
+      addLog('ok', `Geofence valid: Anda terdeteksi di area <b>${detectedBridge}</b>.`);
     }
 
-    addLog('ok', `Geofence valid: Anda terdeteksi di area <b>${detectedBridge}</b>.`);
     transmitPayload(buildPayload(snapshot));
   }
 }
