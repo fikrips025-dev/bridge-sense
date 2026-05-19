@@ -1,7 +1,5 @@
 /* ============================================================
-   BRIDGE-SENSE — app.js  |  FINAL  (Tahap 2 + Tahap 3)
-   Tahap 2 : Permission · Akuisisi · SCS→ECS · SMA · Waveform
-   Tahap 3 : TX Buffer · JSON Payload · fetch POST · GC · UI sync
+   BRIDGE-SENSE — app.js  |  FINAL  (Tahap 2 + Tahap 3 + Profil Patch)
 ============================================================ */
 
 'use strict';
@@ -19,20 +17,22 @@ const elBufCount  = document.getElementById('buf-count');
 const elBufBar    = document.getElementById('buf-bar');
 const elBadge     = document.getElementById('badge-state');
 const elLogFeed   = document.getElementById('log-feed');
+const canvas      = document.getElementById('waveform-canvas');
+const ctx         = canvas.getContext('2d');
+
+// --- TAMBAHAN HOOK UNTUK TAB PROFIL ---
 const elStatPackets = document.getElementById('stat-packets');
 const elStatSessions = document.getElementById('stat-sessions');
 const elSessionList = document.getElementById('session-list');
-const canvas      = document.getElementById('waveform-canvas');
-const ctx         = canvas.getContext('2d');
 
 /* ──────────────────────────────────────────────────────────────
    2. KONSTANTA SISTEM
 ────────────────────────────────────────────────────────────── */
 const G              = 9.80665;           // gravitasi standar [m/s²]
-const SAMPLE_RATE_HZ = 50;               // kontrak sampling
+const SAMPLE_RATE_HZ = 50;                // kontrak sampling
 const INTERVAL_MS    = 1000 / SAMPLE_RATE_HZ; // 20 ms / sampel
-const TX_BUF_SIZE    = 150;              // 150 titik = 3 detik
-const SMA_WIN        = 5;               // window SMA (~100 ms)
+const TX_BUF_SIZE    = 150;               // 150 titik = 3 detik
+const SMA_WIN        = 5;                 // window SMA (~100 ms)
 const TX_ENDPOINT    = 'https://jsonplaceholder.typicode.com/posts';
 const DEVICE_ID      = 'BS-' + Math.random().toString(36).slice(2, 9).toUpperCase();
 
@@ -52,20 +52,6 @@ const state = {
 
 /* ──────────────────────────────────────────────────────────────
    4. BUFFER DEKLARASI
-
-   Dua buffer dengan tanggung jawab berbeda — tidak pernah dicampur:
-
-   ┌─ ringRaw / ringSMA ─────────────────────────────────────┐
-   │  Circular display buffer (Float32Array — ukuran tetap)  │
-   │  Hanya untuk render waveform pada canvas.               │
-   │  Tidak pernah dikirim ke server.                        │
-   └─────────────────────────────────────────────────────────┘
-
-   ┌─ txBuf ─────────────────────────────────────────────────┐
-   │  Transmit buffer (Float32Array — ukuran tetap TX_BUF).  │
-   │  Diisi oleh setInterval 50 Hz.                          │
-   │  Di-GC (txHead = 0) SEKETIKA setelah fetch() dipanggil. │
-   └─────────────────────────────────────────────────────────┘
 ────────────────────────────────────────────────────────────── */
 const DISP_LEN = TX_BUF_SIZE;
 const ringRaw  = new Float32Array(DISP_LEN);
@@ -76,12 +62,9 @@ const smaWindow = new Float32Array(SMA_WIN);
 let   smaIdx    = 0;
 let   smaSum    = 0;
 
-/* Transmit buffer — indeks txHead adalah satu-satunya "length" counter.
-   Float32Array panjangnya tetap; reset = set txHead ke 0.            */
 const txBuf  = new Float32Array(TX_BUF_SIZE);
 let   txHead = 0;
 
-/* Handle interval 50 Hz */
 let _sampleInterval    = null;
 let _motionHandler     = null;
 let _orientationHandler= null;
@@ -162,23 +145,6 @@ function handleOrientation(e) {
 
 /* ──────────────────────────────────────────────────────────────
    9. DEVICEMOTION HANDLER  +  SCS → ECS TRANSFORMATION
-
-   Hierarki sumber data:
-     Tier-1 → event.acceleration           [linear, tanpa gravitasi]
-     Tier-2 → event.accelerationIncludingGravity + subtraksi manual
-
-   Subtraksi gravitasi manual (Tier-2):
-     g_x =  G · sin(γ)
-     g_y = -G · cos(γ) · sin(β)
-     g_z = -G · cos(γ) · cos(β)
-
-   Proyeksi vertikal SCS → ECS (2-axis, tanpa yaw):
-     Z_ECS = Ax · sin(γ)
-           - Ay · sin(β) · cos(γ)
-           + Az · cos(β) · cos(γ)
-
-   Output Z_ECS lalu difilter SMA → disimpan ke state.zECS.
-   Nilai mentah (pre-SMA) dan smoothed keduanya masuk ring display.
 ────────────────────────────────────────────────────────────── */
 function handleMotion(e) {
   let ax, ay, az;
@@ -193,10 +159,12 @@ function handleMotion(e) {
   } else if (raw && raw.z !== null && raw.z !== undefined) {
     const sB = Math.sin(state.pitch), cB = Math.cos(state.pitch);
     const sG = Math.sin(state.roll),  cG = Math.cos(state.roll);
-    ax = (raw.x ?? 0) - (G *  sG);
+    ax = (raw.x ?? 0) - (G * sG);
     ay = (raw.y ?? 0) - (G * -cG * sB);
     az = (raw.z ?? 0) - (G * -cG * cB);
   } else {
+    // Alarm jika HP mengunci data sensor
+    addLog('err', 'Sensor terdeteksi, tapi data KOSONG (null). Periksa Setelan Situs Chrome.');
     return;
   }
 
@@ -206,10 +174,10 @@ function handleMotion(e) {
   const zRaw = ax * sinG - ay * sinB * cosG + az * cosB * cosG;
 
   /* SMA */
-  smaSum           -= smaWindow[smaIdx];
+  smaSum            -= smaWindow[smaIdx];
   smaWindow[smaIdx] = zRaw;
-  smaSum           += zRaw;
-  smaIdx            = (smaIdx + 1) % SMA_WIN;
+  smaSum            += zRaw;
+  smaIdx             = (smaIdx + 1) % SMA_WIN;
   const zSmoothed   = smaSum / SMA_WIN;
 
   /* Display ring buffer */
@@ -225,20 +193,7 @@ function handleMotion(e) {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   10. TAHAP 3 — TRANSMIT PIPELINE
-
-   setInterval 50 Hz membaca state.zECS (hasil terbaru dari
-   DeviceMotion handler) lalu mendorongnya ke txBuf.
-
-   Pemisahan antara event-driven sensor (handleMotion) dan
-   interval sampler ini penting: DeviceMotion tidak dijamin
-   tiba tepat 50 Hz di semua platform. Interval bertindak
-   sebagai "clock master" yang konsisten.
-
-   Ketika txHead === TX_BUF_SIZE:
-     1. Snapshot txBuf ke Array biasa  → payload JSON
-     2. txHead = 0  (GARBAGE COLLECT — seketika, sync)
-     3. fetch() dipanggil secara async — tidak memblokir GC
+   10. TAHAP 3 — TRANSMIT PIPELINE & PROFIL INJECTION
 ────────────────────────────────────────────────────────────── */
 function buildPayload(snapshot) {
   const coords = state.gpsCoords;
@@ -251,10 +206,11 @@ function buildPayload(snapshot) {
     gps_acc_m:  coords ? coords.acc : null,
     sample_rate_hz: SAMPLE_RATE_HZ,
     n_samples:  TX_BUF_SIZE,
-    z_data:     snapshot,              // Array 150 × float [m/s²]
+    z_data:     snapshot,
   };
 }
 
+// INI ADALAH FUNGSI YANG SUDAH DI-PATCH UNTUK UPDATE TAB PROFIL
 async function transmitPayload(payload) {
   const seq   = payload.seq;
   const bytes = JSON.stringify(payload).length;
@@ -268,13 +224,31 @@ async function transmitPayload(payload) {
     });
     if (res.ok) {
       const json = await res.json();
-      addLog(
-        'ok',
-        `TX #${seq} ✓ — HTTP ${res.status} · `
-        + `lat=${payload.latitude?.toFixed(5) ?? 'N/A'} `
-        + `lon=${payload.longitude?.toFixed(5) ?? 'N/A'} `
-        + `· id_server=${json.id ?? '–'}`
-      );
+      addLog('ok', `TX #${seq} ✓ — HTTP ${res.status}`);
+      
+      // --- KABEL KE TAB PROFIL ---
+      if(elStatPackets) elStatPackets.textContent = seq; 
+      if(elStatSessions) elStatSessions.textContent = "1"; // Asumsi 1 sesi aktif
+      
+      // Bersihkan teks placeholder saat paket pertama masuk
+      if (seq === 1 && elSessionList) elSessionList.innerHTML = '';
+      
+      // Suntikkan riwayat aktual ke daftar sesi
+      const time = new Date().toLocaleTimeString();
+      if(elSessionList) {
+        elSessionList.insertAdjacentHTML('afterbegin', `
+          <div class="session-item">
+            <div class="session-row1">
+              <span class="session-bridge">Transmisi Paket #${seq}</span>
+              <span class="session-result result-ok">Sukses</span>
+            </div>
+            <div class="packet-row">
+              <span>Waktu: ${time}</span>
+              <span>Berisi ${TX_BUF_SIZE} Data Sumbu-Z</span>
+            </div>
+          </div>
+        `);
+      }
     } else {
       addLog('err', `TX #${seq} ✗ — Server HTTP ${res.status}`);
     }
@@ -286,26 +260,18 @@ async function transmitPayload(payload) {
 function tickSampler() {
   if (!state.sensing) return;
 
-  /* ── Push sampel ke TX buffer ── */
   txBuf[txHead] = state.zECS;
   txHead++;
 
-  /* ── Update progress UI ── */
   const pct = (txHead / TX_BUF_SIZE) * 100;
   elBufCount.textContent = txHead;
   elBufBar.style.width   = pct + '%';
 
-  /* ── Buffer penuh → TRANSMIT ── */
   if (txHead >= TX_BUF_SIZE) {
-    /* 1. Snapshot: salin ke plain Array SEBELUM GC */
     const snapshot = Array.from(txBuf);
-
-    /* 2. GARBAGE COLLECT — sync, seketika, sebelum await apapun */
     txHead = 0;
     elBufCount.textContent = '0';
     elBufBar.style.width   = '0%';
-
-    /* 3. Kirim secara async — tidak memblokir sampler berikutnya */
     transmitPayload(buildPayload(snapshot));
   }
 }
@@ -322,11 +288,9 @@ function renderWaveform() {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
-  /* Background */
   ctx.fillStyle = '#0D1117';
   ctx.fillRect(0, 0, W, H);
 
-  /* Grid */
   ctx.lineWidth = 1;
   ctx.strokeStyle = 'rgba(255,255,255,0.05)';
   for (let i = 0; i <= 4; i++) {
@@ -336,7 +300,6 @@ function renderWaveform() {
     ctx.stroke();
   }
 
-  /* Zero line */
   ctx.strokeStyle = 'rgba(230,81,0,0.25)';
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
@@ -346,7 +309,6 @@ function renderWaveform() {
   ctx.setLineDash([]);
 
   if (state.sensing) {
-    /* Auto-scale Y */
     let peak = 2.0;
     for (let i = 0; i < DISP_LEN; i++) {
       const v = Math.abs(ringRaw[i]);
@@ -354,7 +316,6 @@ function renderWaveform() {
     }
     const scale = (H / 2 - 6) / peak;
 
-    /* Raw trace */
     ctx.strokeStyle = 'rgba(230,81,0,0.22)';
     ctx.lineWidth   = 1;
     ctx.beginPath();
@@ -366,7 +327,6 @@ function renderWaveform() {
     }
     ctx.stroke();
 
-    /* SMA trace */
     ctx.strokeStyle = '#E65100';
     ctx.lineWidth   = 1.8;
     ctx.beginPath();
@@ -378,12 +338,10 @@ function renderWaveform() {
     }
     ctx.stroke();
 
-    /* Scale label */
     ctx.fillStyle = 'rgba(230,81,0,0.55)';
     ctx.font      = '10px Courier New';
     ctx.fillText(`±${peak.toFixed(1)} m/s²`, 6, 14);
 
-    /* TX fill indicator (orange band di atas canvas) */
     const txPct = txHead / TX_BUF_SIZE;
     ctx.fillStyle = 'rgba(230,81,0,0.15)';
     ctx.fillRect(0, 0, W * txPct, 3);
@@ -403,24 +361,21 @@ function startSensing() {
   window.addEventListener('deviceorientation', _orientationHandler, true);
   window.addEventListener('devicemotion',      _motionHandler,      true);
 
-  /* Interval sampler 50 Hz — master clock TX pipeline */
   _sampleInterval = setInterval(tickSampler, INTERVAL_MS);
 
   state.sensing = true;
   setStatus('sensor', 'active', '50 Hz · Aktif');
-  elBtnSense.textContent = '⏹ Hentikan Sensing';
-  elBtnSense.classList.add('sensing');
-  elBadge.textContent    = 'SENSING';
+  if(elBtnSense) {
+    elBtnSense.textContent = '⏹ Hentikan Sensing';
+    elBtnSense.classList.add('sensing');
+  }
+  if(elBadge) elBadge.textContent    = 'SENSING';
 
   startGPS();
-  addLog('ok',
-    `Akuisisi aktif — <b>DeviceMotion @ ${SAMPLE_RATE_HZ} Hz</b> · `
-    + `device_id: <b>${DEVICE_ID}</b> · TX tiap 3 s.`
-  );
+  addLog('ok', `Akuisisi aktif — <b>DeviceMotion @ ${SAMPLE_RATE_HZ} Hz</b>`);
 }
 
 function stopSensing() {
-  /* Hentikan sampler & sensor listeners */
   clearInterval(_sampleInterval); _sampleInterval = null;
 
   if (_motionHandler) {
@@ -432,37 +387,34 @@ function stopSensing() {
     _orientationHandler = null;
   }
 
-  /* Reset semua buffer */
   ringRaw.fill(0); ringSMA.fill(0);
   smaWindow.fill(0); smaSum = 0; smaIdx = 0; ringHead = 0;
-  txHead = 0;                                // GC transmit buffer
+  txHead = 0;
 
   state.sensing = false;
   state.pitch   = 0;
   state.roll    = 0;
   state.zECS    = 0;
 
-  /* Reset UI */
   setStatus('sensor', 'idle', 'Idle');
-  elBtnSense.textContent = '▶ Mulai Sensing';
-  elBtnSense.classList.remove('sensing');
-  elBadge.textContent    = 'IDLE';
-  elValZ.textContent     = '0.000';
-  elBufCount.textContent = '0';
-  elBufBar.style.width   = '0%';
+  if(elBtnSense) {
+    elBtnSense.textContent = '▶ Mulai Sensing';
+    elBtnSense.classList.remove('sensing');
+  }
+  if(elBadge) elBadge.textContent    = 'IDLE';
+  if(elValZ) elValZ.textContent      = '0.000';
+  if(elBufCount) elBufCount.textContent = '0';
+  if(elBufBar) elBufBar.style.width   = '0%';
 
   stopGPS();
-  addLog('warn', 'Sensing dihentikan. Semua buffer dikosongkan (GC selesai).');
+  addLog('warn', 'Sensing dihentikan. GC selesai.');
 }
 
 /* ──────────────────────────────────────────────────────────────
-   13. PERMISSION FLOW  (iOS 13+ DeviceMotionEvent.requestPermission)
+   13. PERMISSION FLOW
 ────────────────────────────────────────────────────────────── */
 async function requestSensorPermission() {
-  if (
-    typeof DeviceMotionEvent !== 'undefined' &&
-    typeof DeviceMotionEvent.requestPermission === 'function'
-  ) {
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
     try {
       const res = await DeviceMotionEvent.requestPermission();
       if (res === 'granted') {
@@ -485,7 +437,6 @@ async function requestSensorPermission() {
 /* ──────────────────────────────────────────────────────────────
    14. BUTTON & OVERLAY WIRING (PATCHED)
 ────────────────────────────────────────────────────────────── */
-// Gunakan ?. (Optional Chaining) agar tidak crash jika ID tidak ada di HTML
 elBtnSense?.addEventListener('click', async () => {
   if (state.sensing) { stopSensing(); return; }
   if (!state.permGranted) {
@@ -515,15 +466,6 @@ document.getElementById('btn-clear-log')?.addEventListener('click', () => {
   elLogFeed.innerHTML = '';
 });
 
-/* Filter chip (nav Map) */
-document.querySelectorAll('.filter-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    chip.closest('.bridge-filter')
-        ?.querySelectorAll('.filter-chip')
-        .forEach(c => c.classList.toggle('active', c === chip));
-  });
-});
-
 /* ──────────────────────────────────────────────────────────────
    15. CANVAS RESIZE
 ────────────────────────────────────────────────────────────── */
@@ -541,7 +483,4 @@ resizeCanvas();
 ────────────────────────────────────────────────────────────── */
 _rafId = requestAnimationFrame(renderWaveform);
 elLogFeed.innerHTML = '';
-addLog('warn',
-  `Bridge-Sense siap · device_id: <b>${DEVICE_ID}</b> · `
-  + `Endpoint: <b>${TX_ENDPOINT}</b>`
-);
+addLog('warn', `Bridge-Sense siap · device_id: <b>${DEVICE_ID}</b>`);
