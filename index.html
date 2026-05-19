@@ -738,6 +738,7 @@ g_vector ≈ [0, 0, 9.80665] m/s²
 <script>
   /* ============================================================
      NAVIGASI — 3 tab: sense | map | profil
+     (Hanya ini yang disisakan, sisanya ditangani oleh app.js)
   ============================================================ */
   const pages   = document.querySelectorAll('.page');
   const navBtns = document.querySelectorAll('.nav-btn');
@@ -749,59 +750,9 @@ g_vector ≈ [0, 0, 9.80665] m/s²
       navBtns.forEach(b => b.classList.toggle('active', b === btn));
     });
   });
-
-  /* Permission Overlay */
-  document.getElementById('btn-grant-perm').addEventListener('click', () => {
-    document.getElementById('perm-overlay').style.display = 'none';
-  });
-  document.getElementById('btn-skip-perm').addEventListener('click', () => {
-    document.getElementById('perm-overlay').style.display = 'none';
-  });
-  document.getElementById('btn-permission').addEventListener('click', () => {
-    document.getElementById('perm-overlay').style.display = 'flex';
-  });
-
-  /* Filter chip toggle */
-  document.querySelectorAll('.filter-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      chip.closest('.bridge-filter')
-          .querySelectorAll('.filter-chip')
-          .forEach(c => c.classList.toggle('active', c === chip));
-    });
-  });
-
-  /* Canvas — resize & grid render */
-  const canvas = document.getElementById('waveform-canvas');
-  function resizeCanvas() {
-    const rect = canvas.getBoundingClientRect();
-    const dpr  = window.devicePixelRatio || 1;
-    canvas.width  = rect.width  * dpr;
-    canvas.height = rect.height * dpr;
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    ctx.strokeStyle = 'rgba(0,188,212,0.08)';
-    ctx.lineWidth   = 1;
-    for (let y = 0; y <= 4; y++) {
-      ctx.beginPath();
-      ctx.moveTo(0, rect.height * y / 4);
-      ctx.lineTo(rect.width, rect.height * y / 4);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = 'rgba(0,188,212,0.04)';
-    for (let x = 0; x <= 3; x++) {
-      ctx.beginPath();
-      ctx.moveTo(rect.width * x / 3, 0);
-      ctx.lineTo(rect.width * x / 3, rect.height);
-      ctx.stroke();
-    }
-  }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  /* Clear log */
-  document.getElementById('btn-clear-log').addEventListener('click', () => {
-    document.getElementById('log-feed').innerHTML = '';
-  });
 </script>
+
+<script src="app.js"></script>
+
 </body>
 </html>
