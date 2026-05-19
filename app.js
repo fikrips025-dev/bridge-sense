@@ -480,9 +480,10 @@ async function requestSensorPermission() {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   14. BUTTON & OVERLAY WIRING
+   14. BUTTON & OVERLAY WIRING (PATCHED)
 ────────────────────────────────────────────────────────────── */
-elBtnSense.addEventListener('click', async () => {
+// Gunakan ?. (Optional Chaining) agar tidak crash jika ID tidak ada di HTML
+elBtnSense?.addEventListener('click', async () => {
   if (state.sensing) { stopSensing(); return; }
   if (!state.permGranted) {
     const ok = await requestSensorPermission();
@@ -491,22 +492,23 @@ elBtnSense.addEventListener('click', async () => {
   startSensing();
 });
 
-document.getElementById('btn-grant-perm').addEventListener('click', async () => {
+document.getElementById('btn-grant-perm')?.addEventListener('click', async () => {
   document.getElementById('perm-overlay').style.display = 'none';
   await requestSensorPermission();
 });
 
-document.getElementById('btn-skip-perm').addEventListener('click', () => {
+document.getElementById('btn-skip-perm')?.addEventListener('click', () => {
   document.getElementById('perm-overlay').style.display = 'none';
   state.permGranted = true;
   addLog('warn', 'Demo mode: izin sensor dilewati.');
 });
 
-document.getElementById('btn-permission').addEventListener('click', () => {
-  document.getElementById('perm-overlay').style.display = 'flex';
+document.getElementById('btn-permission')?.addEventListener('click', () => {
+  const overlay = document.getElementById('perm-overlay');
+  if(overlay) overlay.style.display = 'flex';
 });
 
-document.getElementById('btn-clear-log').addEventListener('click', () => {
+document.getElementById('btn-clear-log')?.addEventListener('click', () => {
   elLogFeed.innerHTML = '';
 });
 
@@ -514,7 +516,7 @@ document.getElementById('btn-clear-log').addEventListener('click', () => {
 document.querySelectorAll('.filter-chip').forEach(chip => {
   chip.addEventListener('click', () => {
     chip.closest('.bridge-filter')
-        .querySelectorAll('.filter-chip')
+        ?.querySelectorAll('.filter-chip')
         .forEach(c => c.classList.toggle('active', c === chip));
   });
 });
