@@ -11,8 +11,7 @@
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <div id="app">
@@ -26,7 +25,6 @@
   </header>
 
   <div id="page-wrapper">
-
     <div class="page active" id="page-sense">
       <div class="status-row">
         <div class="status-chip">
@@ -121,18 +119,26 @@
         <div class="bridge-item">
           <span class="bridge-icon">🌉</span>
           <div class="bridge-info">
-            <div class="bridge-name">Jembatan Kembang I</div>
-            <div class="bridge-loc">Desa Kembang · ±0.3 km</div>
+            <div class="bridge-name">Jembatan Ki Ronggo</div>
+            <div class="bridge-loc">Pusat Kota · Radius 50m</div>
           </div>
           <span class="bridge-status-badge badge-monitored">Aktif</span>
         </div>
         <div class="bridge-item">
           <span class="bridge-icon">🌉</span>
           <div class="bridge-info">
-            <div class="bridge-name">Jembatan Tamanan</div>
-            <div class="bridge-loc">Kec. Tamanan · ±4.1 km</div>
+            <div class="bridge-name">Jembatan Sentong</div>
+            <div class="bridge-loc">Kawasan Nangkaan · Radius 50m</div>
           </div>
-          <span class="bridge-status-badge badge-pending">Pending</span>
+          <span class="bridge-status-badge badge-pending" style="background:rgba(230,81,0,0.10); color:#E65100; border-color:rgba(230,81,0,0.25);">Revitalisasi</span>
+        </div>
+        <div class="bridge-item">
+          <span class="bridge-icon">🌉</span>
+          <div class="bridge-info">
+            <div class="bridge-name">Jembatan Tangsil</div>
+            <div class="bridge-loc">Tangsil Kulon · Radius 50m</div>
+          </div>
+          <span class="bridge-status-badge badge-monitored">Aktif</span>
         </div>
       </div>
     </div>
@@ -176,7 +182,7 @@ g_vector ≈ [0, 0, 9.80665] m/s²
           <tr><td>Buffer Size</td><td>150 titik data (3 detik)</td></tr>
           <tr><td>Transmisi</td><td>Setiap 3 detik (JSON)</td></tr>
           <tr><td>Filter Noise</td><td>Simple Moving Average (SMA)</td></tr>
-          <tr><td>Geofence</td><td>GPS ± akurasi koordinat</td></tr>
+          <tr><td>Geofence</td><td>Haversine GPS (Toleransi 50m)</td></tr>
         </table>
       </div>
     </div>
@@ -212,9 +218,6 @@ g_vector ≈ [0, 0, 9.80665] m/s²
 </div>
 
 <script>
-  /* ============================================================
-     NAVIGASI — 3 tab
-  ============================================================ */
   const pages   = document.querySelectorAll('.page');
   const navBtns = document.querySelectorAll('.nav-btn');
 
