@@ -19,6 +19,9 @@ const elBufCount  = document.getElementById('buf-count');
 const elBufBar    = document.getElementById('buf-bar');
 const elBadge     = document.getElementById('badge-state');
 const elLogFeed   = document.getElementById('log-feed');
+const elStatPackets = document.getElementById('stat-packets');
+const elStatSessions = document.getElementById('stat-sessions');
+const elSessionList = document.getElementById('session-list');
 const canvas      = document.getElementById('waveform-canvas');
 const ctx         = canvas.getContext('2d');
 
